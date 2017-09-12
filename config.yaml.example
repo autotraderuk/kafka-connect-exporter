@@ -1,0 +1,28 @@
+# Required kafka connect configuration.
+#   host has no default, and must be set.
+#   poll-interval will default to 10 if not explicitly set.
+connect:
+  # REST API host
+  host: "example.com:8083"
+  # interval (in seconds) at which the API will be polled
+  poll-interval: 30
+
+# Optional logging configuration.
+# Only logentries, and rollbar are supported.
+logging:
+  logentries:
+    token: example_logentries_token
+  rollbar:
+    token: example_rollbar_token
+    env: production
+
+# Optional alternative configuration locations.
+# Only consul is supported.
+# Configuration sources will be evaluated in the following order: environment variables, local file, consul.
+config:
+  consul:
+    host: consul.example.com
+    path: /configs/kafka-connect-monitoring.yaml
+
+prometheus:
+  port: 9400
