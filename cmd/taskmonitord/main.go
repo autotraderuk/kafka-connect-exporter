@@ -13,7 +13,7 @@ import (
 	"github.com/zenreach/hatchet"
 	"github.com/zenreach/hatchet/logentries"
 	"github.com/zenreach/hatchet/rollbar"
-	"github.com/zenreach/kafka-connect-monitoring/prometheus"
+	"github.com/zenreach/kafka-connect-exporter/prometheus"
 )
 
 func init() {

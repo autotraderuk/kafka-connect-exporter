@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-kafka/connect"
 	prom "github.com/prometheus/client_golang/prometheus"
-	"github.com/zenreach/kafka-connect-monitoring/prometheus"
+	"github.com/zenreach/kafka-connect-exporter/prometheus"
 )
 
 func TestServer(t *testing.T) {
