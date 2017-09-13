@@ -32,6 +32,12 @@
   revision = "8f6b1344a92ff8877cf24a5de9177bf7d0a2a187"
 
 [[projects]]
+  name = "github.com/jonboulle/clockwork"
+  packages = ["."]
+  revision = "2eee05ed794112d45db504eb05aa693efd2b8b09"
+  version = "v0.1.0"
+
+[[projects]]
   name = "github.com/magiconair/properties"
   packages = ["."]
   revision = "be5ece7dd465ab0765a9682137865547526d1dfb"
@@ -160,6 +166,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "65ecddc0bcfef9973ba2664ed77b046464c56b1923455de8b7b88d51469b2221"
+  inputs-digest = "e5799ffac6770d3ef94b10c6721ab6ebd5e1b4f4a1ef8090ca9655e6c336e827"
   solver-name = "gps-cdcl"
   solver-version = 1
