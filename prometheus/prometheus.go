@@ -1,4 +1,4 @@
-// package prometheus provides a prometheus backend for task monitoring. It contains a Metrics type for synchronizing connect API requests for updating metrics, and reads (typically via an http handler). Also included, is an http server for exposing the metrics.
+// Package prometheus provides an API for gathering prometheus metrics on tasks deployed to a kafka connect cluster.
 package prometheus
 
 import (
@@ -12,9 +12,9 @@ import (
 
 // Metrics encapsulates prom metrics for kafka connect tasks.
 type Metrics struct {
+	*prom.GaugeVec
 	client ConnectClient
 	lock   *sync.RWMutex
-	tasks  *prom.GaugeVec
 	err    error
 }
 
@@ -30,11 +30,11 @@ type ConnectClient interface {
 }
 
 // NewMetrics returns a new instance of prometheus metrics using the given client.
-func NewMetrics(reg prom.Registerer, client ConnectClient) *Metrics {
+func NewMetrics(client ConnectClient) *Metrics {
 	m := &Metrics{
 		client: client,
 		lock:   new(sync.RWMutex),
-		tasks: prom.NewGaugeVec(
+		GaugeVec: prom.NewGaugeVec(
 			prom.GaugeOpts{
 				Namespace: "kafka",
 				Subsystem: "connect",
@@ -44,7 +44,6 @@ func NewMetrics(reg prom.Registerer, client ConnectClient) *Metrics {
 			[]string{"connector", "state", "worker"},
 		),
 	}
-	reg.MustRegister(m.tasks)
 	return m
 }
 
@@ -74,7 +73,7 @@ func (m *Metrics) Update() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	m.tasks.Reset()
+	m.Reset()
 
 	for _, conn := range conns {
 		connStatus, res, err := m.client.GetConnectorStatus(conn)
@@ -91,7 +90,7 @@ func (m *Metrics) Update() error {
 			return m.err
 		}
 		for _, tStatus := range connStatus.Tasks {
-			m.tasks.With(prom.Labels{
+			m.With(prom.Labels{
 				"connector": conn,
 				"state":     tStatus.State,
 				"worker":    tStatus.WorkerID,
@@ -109,4 +108,10 @@ func (m *Metrics) PauseUpdates() {
 // ResumeUpdates unblocks metrics refreshes.
 func (m *Metrics) ResumeUpdates() {
 	m.lock.RUnlock()
+}
+
+// Err returns an error if the last call to Update returned a non-nil error,
+// or nil otherwise.
+func (m *Metrics) Err() error {
+	return m.err
 }

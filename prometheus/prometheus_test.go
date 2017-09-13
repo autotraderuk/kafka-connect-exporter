@@ -2,25 +2,21 @@ package prometheus_test
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/go-kafka/connect"
-	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/zenreach/kafka-connect-exporter/prometheus"
 )
 
-func TestServer(t *testing.T) {
-	testCases := []srvTestCase{
+func TestMetricsUpdateErr(t *testing.T) {
+	testCases := []updateTestCase{
 		{
 			name: "error on list connectors",
 			client: &mockConnectClient{
 				listConnectorErr: true,
 			},
 			expectErrOnUpdate: true,
-			expectStatus:      500,
 		},
 		{
 			name: "error on connector status",
@@ -45,12 +41,10 @@ func TestServer(t *testing.T) {
 				},
 			},
 			expectErrOnUpdate: true,
-			expectStatus:      500,
 		},
 		{
-			name:         "no connectors",
-			client:       &mockConnectClient{},
-			expectStatus: 200,
+			name:   "no connectors",
+			client: &mockConnectClient{},
 		},
 		{
 			name: "no tasks",
@@ -68,7 +62,6 @@ func TestServer(t *testing.T) {
 				},
 			},
 			expectErrOnUpdate: true,
-			expectStatus:      500,
 		},
 		{
 			name: "running task",
@@ -91,7 +84,6 @@ func TestServer(t *testing.T) {
 					},
 				},
 			},
-			expectStatus: 200,
 		},
 	}
 
@@ -100,49 +92,36 @@ func TestServer(t *testing.T) {
 	}
 }
 
-type srvTestCase struct {
-	name              string
-	client            *mockConnectClient
-	expectErrOnUpdate bool
-	expectStatus      int
+type updateTestCase struct {
+	name                string
+	client              *mockConnectClient
+	expectErrOnUpdate   bool
+	expectListCallCount int
 }
 
-func (tc srvTestCase) assert(t *testing.T) {
+func (tc updateTestCase) assert(t *testing.T) {
 	// set up metrics
-	metrics := prometheus.NewMetrics(prom.NewRegistry(), tc.client)
-	h := prometheus.NewHandler(metrics)
-
-	// start a test server
-	ts := httptest.NewServer(h)
-
-	if err := metrics.Update(); err != nil {
+	metrics := prometheus.NewMetrics(tc.client)
+	metrics.Update()
+	if err := metrics.Err(); err != nil {
 		if !tc.expectErrOnUpdate {
 			t.Fatal(err)
 		}
 	} else if tc.expectErrOnUpdate {
 		t.Error("expected error on update")
 	}
-
-	// call the metrics endpoint
-	res, err := http.Get(fmt.Sprintf("%s/metrics", ts.URL))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// assert
-	if res.StatusCode != tc.expectStatus {
-		t.Errorf("Unexpected status code.\nExpected: %d\nActual: %d\n", tc.expectStatus, res.StatusCode)
-	}
 }
 
 type mockConnectClient struct {
 	listConnectorErr   bool
+	listCallCount      int
 	connectorStatusErr bool
 	connectors         []string
 	statuses           map[string]*connect.ConnectorStatus
 }
 
 func (c *mockConnectClient) ListConnectors() ([]string, *http.Response, error) {
+	c.listCallCount++
 	if c.listConnectorErr {
 		return nil, nil, errors.New("error listing connectors")
 	}
