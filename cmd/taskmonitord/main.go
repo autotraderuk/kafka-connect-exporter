@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,7 +29,7 @@ func init() {
 	viper.SetDefault("config.consul.path", "")
 	viper.SetDefault("connect.host", "")
 	viper.SetDefault("connect.poll-interval", "10")
-	viper.SetDefault("prometheus.port", "9400")
+	viper.SetDefault("prometheus.listen", ":9400")
 
 	// env vars
 	viper.AutomaticEnv()
@@ -44,7 +43,7 @@ func init() {
 	viper.BindEnv("config.consul.path")
 	viper.BindEnv("connect.host")
 	viper.BindEnv("connect.poll-interval")
-	viper.BindEnv("prometheus.port")
+	viper.BindEnv("prometheus.listen")
 
 	// config file
 	fPath := viper.GetString("config.file.path")
@@ -88,6 +87,12 @@ func graceful(srv *http.Server, timeout time.Duration) error {
 	}
 }
 
+type clock struct{}
+
+func (c *clock) After(d time.Duration) <-chan time.Time {
+	return time.After(d)
+}
+
 func main() {
 	// set up logging
 	logger := hatchet.Standardize(hatchet.JSON(os.Stderr))
@@ -114,35 +119,23 @@ func main() {
 		logger.Fatal("no configured connect host")
 	}
 	client := connect.NewClient(connectHost)
-	metrics := prometheus.NewMetrics(client)
-	prom.MustRegister(metrics)
 	ival := viper.GetInt64("connect.poll-interval")
-	go func() {
-		for {
-			<-time.After(time.Duration(ival) * time.Second)
-			if err := metrics.Update(); err != nil {
-				logger.Log(hatchet.L{
-					"message": "updating metrics",
-					"error":   err,
-				})
-			}
-		}
-	}()
+	metrics := prometheus.NewMetrics(client, new(clock), time.Duration(ival)*time.Second)
+	defer metrics.Close()
+	prom.MustRegister(metrics)
 
 	// expose metrics via http
-	promPort := viper.GetString("prometheus.port")
-	if promPort == "" {
-		logger.Fatal("no configured prometheus port")
-	}
-	addr := fmt.Sprintf(":%s", promPort)
+	addr := viper.GetString("prometheus.listen")
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if metrics.Err() != nil {
+		if err := metrics.Err(); err != nil {
+			logger.Log(hatchet.L{
+				"message": "calling kafka connect API",
+				"error":   err,
+			})
 			w.WriteHeader(500)
-			w.Write([]byte(errors.WithStack(metrics.Err()).Error()))
+			w.Write([]byte(errors.Cause(err).Error()))
 			return
 		}
-		metrics.PauseUpdates()
-		defer metrics.ResumeUpdates()
 		promhttp.Handler().ServeHTTP(w, r)
 	})
 	timeout := time.Duration(10) * time.Second
