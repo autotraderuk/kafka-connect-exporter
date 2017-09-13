@@ -4,6 +4,7 @@ package prometheus
 import (
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/go-kafka/connect"
 	"github.com/pkg/errors"
@@ -16,6 +17,7 @@ type Metrics struct {
 	client ConnectClient
 	lock   *sync.RWMutex
 	err    error
+	close  chan struct{}
 }
 
 // ConnectClient is an abstraction for a kafka connect REST Client.
@@ -29,8 +31,16 @@ type ConnectClient interface {
 	GetConnectorStatus(string) (*connect.ConnectorStatus, *http.Response, error)
 }
 
-// NewMetrics returns a new instance of prometheus metrics using the given client.
-func NewMetrics(client ConnectClient) *Metrics {
+// Clock is a type for abstracting the time.After method.
+// Like ConnectClient, this is mostly used for testing purposes.
+type Clock interface {
+	// After returns a channel that sends the current time after d.
+	After(d time.Duration) <-chan time.Time
+}
+
+// NewMetrics returns a new instance of prometheus metrics using the given client, and
+// it will start polling the connect API at the given pollInterval.
+func NewMetrics(client ConnectClient, clock Clock, pollInterval time.Duration) *Metrics {
 	m := &Metrics{
 		client: client,
 		lock:   new(sync.RWMutex),
@@ -43,27 +53,31 @@ func NewMetrics(client ConnectClient) *Metrics {
 			},
 			[]string{"connector", "state", "worker"},
 		),
+		close: make(chan struct{}),
 	}
+	go func() {
+		for {
+			select {
+			case <-clock.After(pollInterval):
+				m.err = m.update()
+			case <-m.close:
+				return
+			}
+		}
+	}()
 	return m
 }
 
-// Update will update all metrics for the monitored set of kafka connect configs. It
+// update will update all metrics for the monitored set of kafka connect configs. It
 // returns an error if any underlying API calls to kafka connect fail, either by connection
 // or non-2XX status code.
-//
-// NOTE: Any metrics readers should use the PauseUpdates and ResumeUpdates methods to ensure
-// metrics are exposed in a consistent way.
-// If Update returns an error, all exported metrics will be deleted until another successful call to Update.
-func (m *Metrics) Update() error {
-	m.err = nil
+func (m *Metrics) update() error {
 	conns, res, err := m.client.ListConnectors()
 	if err != nil {
-		m.err = errors.Wrap(err, "listing connectors")
-		return m.err
+		return errors.Wrap(err, "listing connectors")
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		m.err = errors.Errorf("status code %d from listing connectors", res.StatusCode)
-		return m.err
+		return errors.Errorf("status code %d from listing connectors", res.StatusCode)
 	}
 
 	if len(conns) == 0 {
@@ -78,16 +92,13 @@ func (m *Metrics) Update() error {
 	for _, conn := range conns {
 		connStatus, res, err := m.client.GetConnectorStatus(conn)
 		if err != nil {
-			m.err = errors.Wrapf(err, "getting status for connector %s", conn)
-			return m.err
+			return errors.Wrapf(err, "getting status for connector %s", conn)
 		}
 		if res.StatusCode < 200 || res.StatusCode >= 300 {
-			m.err = errors.Errorf("status code %d from getting status for connector %s", res.StatusCode, conn)
-			return m.err
+			return errors.Errorf("status code %d from getting status for connector %s", res.StatusCode, conn)
 		}
 		if len(connStatus.Tasks) == 0 {
-			m.err = errors.Errorf("no tasks for connector %s", conn)
-			return m.err
+			return errors.Errorf("no tasks for connector %s", conn)
 		}
 		for _, tStatus := range connStatus.Tasks {
 			m.With(prom.Labels{
@@ -100,18 +111,23 @@ func (m *Metrics) Update() error {
 	return nil
 }
 
-// PauseUpdates blocks metrics refreshes.
-func (m *Metrics) PauseUpdates() {
-	m.lock.RLock()
+// Err returns a non-nil error if the last call to the connect API
+// resulted in an error or a non-2XX status code.
+func (m *Metrics) Err() error {
+	return m.err
 }
 
-// ResumeUpdates unblocks metrics refreshes.
-func (m *Metrics) ResumeUpdates() {
+// Collect overrides the Collect method to ensure metrics
+// are only collected after any updates have finished.
+func (m *Metrics) Collect(ch chan<- prom.Metric) {
+	m.lock.RLock()
+	m.GaugeVec.Collect(ch)
 	m.lock.RUnlock()
 }
 
-// Err returns an error if the last call to Update returned a non-nil error,
-// or nil otherwise.
-func (m *Metrics) Err() error {
-	return m.err
+// Close stops metrics from polling the connect API, and the prometheus metrics
+// will no longer update. It always returns nil.
+func (m *Metrics) Close() error {
+	m.close <- struct{}{}
+	return nil
 }
