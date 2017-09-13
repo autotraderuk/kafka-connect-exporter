@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -64,14 +63,14 @@ func init() {
 
 func main() {
 	// set up logging
-	logger := hatchet.JSON(os.Stderr)
+	logger := hatchet.Standardize(hatchet.JSON(os.Stderr))
 	loggers := make([]hatchet.Logger, 0, 2)
 	var leLogger hatchet.Logger
 	var err error
 	leToken := viper.GetString("logging.logentries.token")
 	if leToken != "" {
 		if leLogger, err = logentries.New(leToken); err != nil {
-			log.Fatal(err)
+			logger.Fatal(err)
 		}
 		loggers = append(loggers, leLogger)
 	}
@@ -79,13 +78,13 @@ func main() {
 	rbEnv := viper.GetString("logging.rollbar.env")
 	loggers = append(loggers, rollbar.New(rbToken, rbEnv))
 	if len(loggers) > 0 {
-		hatchet.Broadcast(loggers...)
+		logger = hatchet.Standardize(hatchet.Broadcast(loggers...))
 	}
 
 	// set up connect api refresh
 	connectHost := viper.GetString("connect.host")
 	if connectHost == "" {
-		log.Fatal("no configured connect host")
+		logger.Fatal("no configured connect host")
 	}
 	client := connect.NewClient(connectHost)
 	metrics := prometheus.NewMetrics(prom.DefaultRegisterer, client)
@@ -105,13 +104,13 @@ func main() {
 	// expose metrics via http
 	promPort := viper.GetString("prometheus.port")
 	if promPort == "" {
-		log.Fatal("no configured prometheus port")
+		logger.Fatal("no configured prometheus port")
 	}
 	addr := fmt.Sprintf(":%s", promPort)
 	handler := prometheus.NewHandler(metrics)
 	srv := prometheus.NewServer(addr, handler)
 	timeout := time.Duration(10) * time.Second
 	if err := prometheus.Graceful(srv, timeout); err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 }
