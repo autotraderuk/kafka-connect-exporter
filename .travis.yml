@@ -1,6 +1,6 @@
 language: go
 go:
-- 1.8
+- 1.9
 sudo: required
 services:
 - docker
@@ -9,10 +9,9 @@ before_install:
 - go get github.com/golang/lint/golint
 install: true
 script:
-- go fmt . ./prometheus/...
-- go vet . ./prometheus/...
-- golint . ./prometheus/...
-- go test -v ./prometheus/...
+- go vet ./...
+- go list -f '{{.Dir}}' ./... | xargs golint
+- go test -v ./...
 after_success:
 - ./build.sh
 deploy:
