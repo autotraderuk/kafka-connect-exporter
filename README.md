@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/zenreach/kafka-connect-exporter.svg?branch=master)](https://travis-ci.org/zenreach/kafka-connect-exporter)
+
 # Kafka Connect Monitoring
 
 This is a service for monitoring kafka connect tasks via prometheus. It exposes a single guage that tracks the number of tasks deployed to a kafka connect cluster. The Guage has three labels associated:
