@@ -1,7 +1,5 @@
 FROM debian:jessie
 
-RUN mkdir -p /opt/bin
+ADD kafka-connect-exporter /usr/bin
 
-ADD kafka-connect-exporter /opt/bin
-
-ENTRYPOINT ["/opt/bin/kafka-connect-exporter"]
+ENTRYPOINT ["kafka-connect-exporter"]
