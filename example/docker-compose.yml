@@ -1,0 +1,96 @@
+version: '2'
+services:
+  kafka-connect-exporter:
+    build: 
+      context: ../
+      dockerfile: Dockerfile
+    image: zenreach/kafka-connect-exporter
+    container_name: kafka-connect-exporter
+    links:
+      - connect
+    ports:
+      - "9400:9400"
+    environment:
+      - CONNECT_HOST=http://connect:8083
+      - CONNECT_POLL_INTERVAL=1
+
+  connect:
+    image: zenreach/kafka-connect
+    container_name: connect
+    ports:
+      - "8083:8083"
+      - "9242:9242"
+    links:
+      - kafka
+      - zookeeper
+      - postgres
+    environment:
+      - CONNECT_BOOTSTRAP_SERVERS=kafka:9092
+      - CONNECT_REST_PORT=8083
+      - CONNECT_GROUP_ID=local
+      - CONNECT_CONFIG_STORAGE_TOPIC=local-config
+      - CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR=1
+      - CONNECT_OFFSET_STORAGE_TOPIC=local-offsets
+      - CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR=1
+      - CONNECT_STATUS_STORAGE_TOPIC=local-status
+      - CONNECT_STATUS_STORAGE_REPLICATION_FACTOR=1
+      - CONNECT_KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+      - CONNECT_VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+      - CONNECT_INTERNAL_KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+      - CONNECT_INTERNAL_VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+      - CONNECT_REST_ADVERTISED_HOST_NAME=connect
+
+  kafka:
+    image: confluentinc/cp-kafka:3.3.0
+    container_name: kafka
+    environment:
+      - ADVERTISED_HOST=kafka
+      - ADVERTISED_PORT=9092
+    expose:
+      - 9092
+    links:
+      - zookeeper
+    environment:
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - JMX_PORT=5555
+    volumes: 
+      - kafka-data:/var/lib/kafka/data
+  
+  zookeeper:
+    image: confluentinc/cp-zookeeper:3.3.0
+    container_name: zookeeper
+    expose:
+      - 2181
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+
+  prometheus:
+    build:
+      context: ./
+      dockerfile: Dockerfile.prometheus
+    image: kce-prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    links:
+      - kafka-connect-exporter
+
+  postgres:
+    image: postgres:9-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+
+volumes:
+  kafka-data:
+  prometheus-data:
+  zookeeper-data:
+  zookeeper-logs:
+  pg-data:
