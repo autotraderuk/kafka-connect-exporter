@@ -18,6 +18,8 @@ for OSARCH in $(ls); do
     cd - > /dev/null
 done
 
+cd $ROOT
+
 echo "Building Docker Image ..."
 docker build -t $IMAGE .
 docker tag ${IMAGE}:latest ${IMAGE}:${RELEASE}
