@@ -16,6 +16,12 @@ The task monitor can be configured via environment variables, yaml file, or remo
 
 For an example on how to use the task monitor, see the example directory.
 
-# Deployment
+# Docker
 
-TODO
+Images are hosted on docker hub:
+
+```
+docker pull zenreach/kafka-connect-exporter
+```
+
+Version tags match up with the github releases.
