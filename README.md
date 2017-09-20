@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/zenreach/kafka-connect-exporter.svg?branch=master)](https://travis-ci.org/zenreach/kafka-connect-exporter)
+[![Build Status](https://travis-ci.org/zenreach/kafka-connect-exporter.svg?branch=master)](https://travis-ci.org/zenreach/kafka-connect-exporter) [![GoDoc](https://godoc.org/github.com/zenreach/kafka-connect-exporter?status.svg)](https://godoc.org/github.com/zenreach/kafka-connect-exporter)
 
 # Kafka Connect Exporter
 
