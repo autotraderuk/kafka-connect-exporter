@@ -108,7 +108,9 @@ func main() {
 	}
 	rbToken := viper.GetString("logging.rollbar.token")
 	rbEnv := viper.GetString("logging.rollbar.env")
-	loggers = append(loggers, rollbar.New(rbToken, rbEnv))
+	if rbToken != "" && rbEnv != "" {
+		loggers = append(loggers, rollbar.New(rbToken, rbEnv))
+	}
 	if len(loggers) > 0 {
 		logger = hatchet.Standardize(hatchet.Broadcast(loggers...))
 	}

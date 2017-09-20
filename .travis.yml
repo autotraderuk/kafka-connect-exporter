@@ -1,0 +1,26 @@
+language: go
+go:
+- 1.9
+sudo: required
+services:
+- docker
+before_install:
+- go get github.com/mitchellh/gox
+- go get github.com/golang/lint/golint
+install: true
+script:
+- go vet ./...
+- go list -f '{{.Dir}}' ./... | xargs golint
+- go test -v ./...
+after_success:
+- ./build.sh
+deploy:
+  provider: releases
+  api_key:
+    secure: Zy5UE+7Z6DhIr0/X8Nrola+ZpoEjCb8xV9+kBNCjb+2bBMK9Wiu6R2AeLDWS/meIKeJbJ/ffUAVBuRmVwB0lUQhi9DnPtaF91BSL3ytfWb/vHZsIumc7Upbpt59ysczgT3AtfXv2GSkYAf9r1rejuoiSp60p/MiF97VHaNOhEWnSWhw1lVKW3lDAonE1BGsaqrVavZymQ7UjtJQUeB8x3+kMgcJPxSY5dC6TImvn76yMZp/Vioovl2+qmQNu+g8paXct1KtJ9aAF5o44hi56uJ+L4xPTzrxsP0LZhLn6C80VSlQCpd4FGdmzgdxMPa/Gn3PymvO68vPW+9Qax+Unri8wWOtk9nBE65/d67nJWlxgVEagjeB8vHJGhELVsKUM4nWxphAgXjH3R5U3riTiTGSF4QXsY5ZoiouZ99D9/FaglOvw3satqGDB0rmpcUseECPZWqKw6RuHvbOcvclAa3rcR7epYeyilgOGiREkE92VCBwvBHusxryIMkOEe3G1MWzJxra7/7GrRRc3qAgJlY19Eq5/tXpZMota4o3p36nvlp0wVKyOhFnjud/Ta0h/d0/CwOvepnTSyY3TqsaWyyPBQV4SSfHT8nc1dCVC2uenHyYTqjyV3vTtbvRf84umhuOe7ycTJ3JoKM+If56RAlaljFE0//lhnd6dWcic+JU=
+  skip_cleanup: true
+  file_glob: true
+  file: dist/*
+  on:
+    tags: true
+    repo: zenreach/kafka-connect-exporter
