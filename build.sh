@@ -20,10 +20,15 @@ done
 
 cd $ROOT
 
-echo "Building Docker Image ..."
-docker build -t $IMAGE .
-docker tag ${IMAGE}:latest ${IMAGE}:${RELEASE}
+if [ "$RELEASE" != "" ]; then
+    echo "Building Docker Image ..."
+    docker build -t $IMAGE .
+    docker tag ${IMAGE}:latest ${IMAGE}:${RELEASE}
 
-echo "Pushing Docker Image ..."
-docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
-docker push ${IMAGE}:${RELEASE}
+    echo "Pushing Docker Image ..."
+    docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+    docker push ${IMAGE}:${RELEASE}
+    docker push ${IMAGE}:latest
+else
+    echo "Not a release. Not building binaries or pushing image."
+fi
