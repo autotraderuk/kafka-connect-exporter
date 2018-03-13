@@ -2,67 +2,24 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"time"
 
+	"github.com/caarlos0/env"
 	"github.com/go-kafka/connect"
 	"github.com/pkg/errors"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/spf13/viper"
-	"github.com/zenreach/hatchet"
-	"github.com/zenreach/hatchet/logentries"
-	"github.com/zenreach/hatchet/rollbar"
 	"github.com/zenreach/kafka-connect-exporter/prometheus"
 )
 
-func init() {
-	// defaults
-	viper.SetDefault("logging.logentries.token", "")
-	viper.SetDefault("logging.rollbar.token", "")
-	viper.SetDefault("logging.rollbar.env", "")
-	viper.SetDefault("config.file.path", "")
-	viper.SetDefault("config.consul.url", "")
-	viper.SetDefault("config.consul.path", "")
-	viper.SetDefault("connect.host", "")
-	viper.SetDefault("connect.poll-interval", "10")
-	viper.SetDefault("prometheus.listen", ":9400")
-
-	// env vars
-	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
-	viper.BindEnv("logging.logentries.token")
-	viper.BindEnv("logging.rollbar.token")
-	viper.BindEnv("logging.rollbar.env")
-	viper.BindEnv("config.file.name")
-	viper.BindEnv("config.file.path")
-	viper.BindEnv("config.consul.url")
-	viper.BindEnv("config.consul.path")
-	viper.BindEnv("connect.host")
-	viper.BindEnv("connect.poll-interval")
-	viper.BindEnv("prometheus.listen")
-
-	// config file
-	fPath := viper.GetString("config.file.path")
-	if fPath != "" {
-		viper.SetConfigFile(fPath)
-		if err := viper.ReadInConfig(); err != nil {
-			panic(err)
-		}
-	}
-
-	// consul
-	remURL := viper.GetString("config.consul.url")
-	remPath := viper.GetString("config.consul.path")
-	if remURL != "" && remPath != "" {
-		viper.AddRemoteProvider("consul", remURL, remPath)
-		if err := viper.ReadRemoteConfig(); err != nil {
-			panic(err)
-		}
-	}
+type config struct {
+	KafkaConnectHost string `env:"KAFKA_CONNECT_HOST"`
+	Port             int    `env:"PORT" envDefault:"9400"`
 }
 
 func graceful(srv *http.Server, timeout time.Duration) error {
@@ -87,61 +44,30 @@ func graceful(srv *http.Server, timeout time.Duration) error {
 	}
 }
 
-type clock struct{}
-
-func (c *clock) After(d time.Duration) <-chan time.Time {
-	return time.After(d)
-}
-
 func main() {
-	// set up logging
-	logger := hatchet.Standardize(hatchet.JSON(os.Stderr))
-	loggers := make([]hatchet.Logger, 0, 2)
-	var leLogger hatchet.Logger
-	var err error
-	leToken := viper.GetString("logging.logentries.token")
-	if leToken != "" {
-		if leLogger, err = logentries.New(leToken); err != nil {
-			logger.Fatal(err)
-		}
-		loggers = append(loggers, leLogger)
-	}
-	rbToken := viper.GetString("logging.rollbar.token")
-	rbEnv := viper.GetString("logging.rollbar.env")
-	if rbToken != "" && rbEnv != "" {
-		loggers = append(loggers, rollbar.New(rbToken, rbEnv))
-	}
-	if len(loggers) > 0 {
-		logger = hatchet.Standardize(hatchet.Broadcast(loggers...))
+	cfg := new(config)
+	if err := env.Parse(cfg); err != nil {
+		log.Fatal(err)
 	}
 
 	// set up connect api refresh
-	connectHost := viper.GetString("connect.host")
-	if connectHost == "" {
-		logger.Fatal("no configured connect host")
-	}
-	client := connect.NewClient(connectHost)
-	ival := viper.GetInt64("connect.poll-interval")
-	metrics := prometheus.NewMetrics(client, new(clock), time.Duration(ival)*time.Second)
-	defer metrics.Close()
+	client := connect.NewClient(cfg.KafkaConnectHost)
+	metrics := prometheus.NewMetrics(client)
 	prom.MustRegister(metrics)
 
 	// expose metrics via http
-	addr := viper.GetString("prometheus.listen")
+	addr := fmt.Sprintf(":%d", cfg.Port)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := metrics.Err(); err != nil {
-			logger.Log(hatchet.L{
-				"message": "calling kafka connect API",
-				"error":   err,
-			})
+		if err := metrics.Update(); err != nil {
+			log.Print(errors.WithStack(errors.WithMessage(err, "calling kafka connect API")))
 			w.WriteHeader(500)
 			w.Write([]byte(errors.Cause(err).Error()))
 			return
 		}
 		promhttp.Handler().ServeHTTP(w, r)
 	})
-	timeout := time.Duration(10) * time.Second
+	timeout := 10 * time.Second
 	if err := graceful(&http.Server{Addr: addr, Handler: handler}, timeout); err != nil {
-		logger.Fatal(err)
+		log.Fatal(err)
 	}
 }
