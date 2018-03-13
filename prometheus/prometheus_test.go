@@ -4,10 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/go-kafka/connect"
-	"github.com/jonboulle/clockwork"
 	"github.com/zenreach/kafka-connect-exporter/prometheus"
 )
 
@@ -103,15 +101,9 @@ type updateTestCase struct {
 
 func (tc updateTestCase) assert(t *testing.T) {
 	// set up metrics
-	ival := time.Duration(1) * time.Second
-	clock := clockwork.NewFakeClock()
-	metrics := prometheus.NewMetrics(tc.client, clock, ival)
-	defer metrics.Close()
-	clock.BlockUntil(1)
-	clock.Advance(ival)
-	clock.BlockUntil(1)
+	metrics := prometheus.NewMetrics(tc.client)
 
-	if err := metrics.Err(); err != nil {
+	if err := metrics.Update(); err != nil {
 		if !tc.expectErrOnUpdate {
 			t.Fatal(err)
 		}
