@@ -8,15 +8,23 @@ This is a service for monitoring kafka connect tasks via prometheus. It exposes 
 - state: The state (RUNNING, FAILED, etc...) of the task.
 - worker: The kafka connect worker (host:port) the task is deployed to.
 
-# Configuration
+Configuration
+=============
 
-The task monitor can be configured via environment variables, yaml file, or remote config via consul. If using one of the latter two methods, the `CONFIG_FILE_PATH` or `CONFIG_CONSUL_HOST` and `CONFIG_CONSUL_PATH` environment variables will have to be set, respectively. For all other configuration options, please see the config.yaml.example file. The corresponding environment variable names will be in all caps, with dots and hyphens replaced with underscores. For example, using the given config.yaml.example, the `logging.logentries.token` path could correspond to the `LOGGING_LOGENTRIES_TOKEN` environment variable.
+The following environment variables can be used to configure the exporter.
 
-# Example
+| Variable                  | Description                   | Required  | Default   |
+| ------------------------- | ----------------------------- | --------- | --------- |
+| KAFKA\_CONNECT\_HOST      | Kafka connect host to monitor | Yes       | N/A       |
+| PORT                      | Port to listen on             | No        | 9400      |       
 
-For an example on how to use the task monitor, see the example directory.
+Example
+=======
 
-# Docker
+For an example on how to use the exporter, see [here](example).
+
+Docker
+======
 
 Images are hosted on docker hub:
 
