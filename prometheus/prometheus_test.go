@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-kafka/connect"
-	"github.com/zenreach/kafka-connect-exporter/prometheus"
+	"github.com/snahelou/kafka-connect-exporter/prometheus"
 )
 
 func TestMetricsUpdateErr(t *testing.T) {
@@ -61,7 +61,7 @@ func TestMetricsUpdateErr(t *testing.T) {
 					},
 				},
 			},
-			expectErrOnUpdate: true,
+			expectErrOnUpdate: false,
 		},
 		{
 			name: "running task",

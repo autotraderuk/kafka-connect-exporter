@@ -70,7 +70,12 @@ func (m *Metrics) Update() error {
 			return errors.Errorf("status code %d from getting status for connector %s", res.StatusCode, conn)
 		}
 		if len(connStatus.Tasks) == 0 {
-			return errors.Errorf("no tasks for connector %s", conn)
+			//return errors.Errorf("no tasks for connector %s", conn)
+			m.With(prom.Labels{
+				"connector": conn,
+				"state":     "EMPTY_TASKS",
+				"worker":    "-1",
+			}).Inc()
 		}
 		for _, tStatus := range connStatus.Tasks {
 			m.With(prom.Labels{
@@ -80,5 +85,6 @@ func (m *Metrics) Update() error {
 			}).Inc()
 		}
 	}
+
 	return nil
 }

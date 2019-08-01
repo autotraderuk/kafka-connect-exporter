@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/zenreach/kafka-connect-exporter/prometheus"
+	"github.com/snahelou/kafka-connect-exporter/prometheus"
 )
 
 type config struct {
@@ -60,8 +60,8 @@ func main() {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := metrics.Update(); err != nil {
 			log.Print(errors.WithStack(errors.WithMessage(err, "calling kafka connect API")))
-			w.WriteHeader(500)
-			w.Write([]byte(errors.Cause(err).Error()))
+			//w.WriteHeader(500)
+			//w.Write([]byte(errors.Cause(err).Error()))
 			return
 		}
 		promhttp.Handler().ServeHTTP(w, r)
