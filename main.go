@@ -9,12 +9,12 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/autotraderuk/kafka-connect-exporter/prometheus"
 	"github.com/caarlos0/env"
 	"github.com/go-kafka/connect"
 	"github.com/pkg/errors"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/snahelou/kafka-connect-exporter/prometheus"
 )
 
 type config struct {

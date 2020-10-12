@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/autotraderuk/kafka-connect-exporter/prometheus"
 	"github.com/go-kafka/connect"
-	"github.com/snahelou/kafka-connect-exporter/prometheus"
 )
 
 func TestMetricsUpdateErr(t *testing.T) {
