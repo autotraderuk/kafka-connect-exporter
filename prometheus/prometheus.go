@@ -77,6 +77,11 @@ func (m *Metrics) Update() error {
 				"worker":    "-1",
 			}).Inc()
 		}
+		m.With(prom.Labels{
+			"connector": conn,
+			"state":     connStatus.Connector.State,
+			"worker":    "toplevel:" + connStatus.Connector.WorkerID,
+		}).Inc()
 		for _, tStatus := range connStatus.Tasks {
 			m.With(prom.Labels{
 				"connector": conn,
